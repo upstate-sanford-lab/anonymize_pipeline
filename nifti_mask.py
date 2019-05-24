@@ -14,8 +14,8 @@ import shutil
 class VOI_to_nifti_mask(ParseVOI):
 
     def __init__(self):
-        self.anonymize_database = r'S:\MIP\MRIClinical'
-        self.databases=['NIH_segmentation_database']
+        self.anonymize_database = r''
+        self.databases=['']
 
 
     def create_masks_all_patients(self):
