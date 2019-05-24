@@ -10,8 +10,8 @@ import shutil
 class Dicom2Nifti():
 
     def __init__(self):
-        self.basePATH = r'S:\MIP\MRIClinical'
-        self.databases=['NIH_segmentation_database']
+        self.basePATH = r''
+        self.databases=['']
 
     def dicom_to_nifti(self,t2_only=True):
         '''
