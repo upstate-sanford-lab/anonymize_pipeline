@@ -134,6 +134,6 @@ def intersection(list1, list2):
 
 if __name__=='__main__':
     c=ParseVOI()
-    c.list_of_dicts(r'S:\MIP\MRIClinical\anonymous_database\prostateX\5762620720\voi\wp.voi')
+    c.list_of_dicts(r'')
 
 
