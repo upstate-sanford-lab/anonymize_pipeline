@@ -1,3 +1,5 @@
+#author @t_sanf
+
 from parsing_VOI import *
 import pydicom
 import math
