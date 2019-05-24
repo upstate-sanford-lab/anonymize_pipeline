@@ -11,6 +11,7 @@ import string
 #local import
 from utils import *
 from nifti_mask import *
+from dicom_to_nifti import *
 
 
 class Anonymize:
