@@ -1,0 +1,227 @@
+import pandas as pd
+import os
+import random
+import shutil
+import pydicom
+import win32com.client
+from io import StringIO
+from docx import Document
+import string
+
+#local import
+from utils import *
+from nifti_mask import *
+
+
+class Anonymize:
+
+    def __init__(self):
+        self.phi_database=r'path to database with phi'
+        self.anonymize_database=r'path where you want your anonymized data to go'
+        self.transfer_database=r''
+        self.anonymize_database_key=r'temp key for database development - need to delete for full anonymizization'
+        self.database=['folder with data to be anonymized']
+
+    def anonymize_ID_transfer(self):
+        '''
+        copy files from network drive to new folder, anonymize the name of the patient
+        :param dir: directory in which all files that need anonymization
+        '''
+
+        databases=self.database
+
+        #read in key:value dataframe, create new one if there isn't already one available
+        if not os.path.isdir(self.anonymize_database_key):
+            os.mkdir(self.anonymize_database_key)
+
+        if os.path.exists(os.path.join(self.anonymize_database_key,'key_file.csv')):
+            keys=pd.read_csv(os.path.join(self.anonymize_database_key,'key_file.csv'))
+            keys=keys.drop(columns=['Unnamed: 0'])
+
+        else:
+            keys=pd.DataFrame(columns=['anonymize_id','original_id'])
+            keys.to_csv(os.path.join(self.anonymize_database_key,'key_file.csv'))
+
+        dictionary={}
+        random_num_list=[]
+        for database in databases:
+
+            # make database directory if one does not already exist
+            if not os.path.exists(os.path.join(self.anonymize_database, database)):
+                os.mkdir(os.path.join(self.anonymize_database, database))
+
+            #iterate over files in phi databse and assign to random number
+            dir=os.path.join(self.phi_database,database)
+            for file in os.listdir(dir):
+                if file != 'practice' and file!= 'template' and file!='template-Copy':
+
+                    print(file)
+                    random_num=random.randint(1000000000,9999999999)
+                    print(random_num)
+                    if str(random_num) not in os.listdir(os.path.join(self.anonymize_database,database)) and file not in keys['original_id'].tolist():
+                        dictionary[random_num]=(file, database)
+                        random_num_list+=[str(random_num)]
+                        shutil.copytree(os.path.join(self.phi_database, database, file),os.path.join(self.anonymize_database, database, str(random_num)))
+                    else:
+                        print("file {} already in this location".format(file))
+
+        #save database
+        database=pd.DataFrame.from_dict(dictionary,orient='index')
+        if database.empty == False:
+            database.reset_index(inplace=True)
+            database.columns=['anonymize_id','original_id','database']
+            database=pd.concat([keys,database])
+            print(database)
+            database.to_csv(os.path.join(self.anonymize_database_key,'key_file.csv'))
+
+
+    def anonomyze_word_docs(self):
+        '''
+        from word document, creates .txt file with raddiology report
+        :param dir: directory in which all files that need anonymization
+        :return:
+        '''
+
+        databases=self.database
+
+        exception_logger=[]
+        for database in databases:
+            for dir in self.check_for_anonymized_word_docs():
+                print('anonymizing files for patient {}'.format(dir))
+                #define directory, word file path, and wordx file path
+                reports_dir=os.path.join(self.anonymize_database,database,dir,'radiologyreports')
+
+                try:
+
+                    #define length files
+                    word_file = os.path.join(reports_dir, os.listdir(reports_dir)[0])
+                    docx_file = word_file + 'x'
+
+                    # first convert to docx to play more
+                    save_doc_as_docx(word_file,docx_file) #note - this function is from the utils folder
+                    output=getText_without_first_line(docx_file)  #note - this function is from the utils folder
+
+                    #save output as .txt file
+                    os.chdir(reports_dir)
+                    text_file = open("radiology_report.txt", "w")
+                    text_file.write(output)
+                    text_file.close()
+
+                    #remove dates from .txt file
+                    remove_dates("radiology_report.txt") #from .utils
+
+                    #remove all files that are not the anonymized file
+                    for file in os.listdir(reports_dir):
+                        if file !='radiology_report.txt':
+                            os.remove(file)
+
+                except:
+                    print("patient {} not able to be processed".format(dir))
+                    exception_logger+=[dir]
+        print('error for the following patient {}'.format(exception_logger))
+        return exception_logger
+
+
+    def check_for_anonymized_word_docs(self,delete_existing=False):
+        '''
+        iterate through all databases and check to see which have already been anonymized
+        :param delete_existing files
+        :return: list of all patients that need updating
+        '''
+
+        databases = self.database
+
+        needs_update=[]
+        for database in databases:
+            for patient_dir in os.listdir(os.path.join(self.anonymize_database, database)):
+                reports_dir = os.path.join(self.anonymize_database, database, patient_dir, 'radiologyreports')
+
+                if delete_existing==True:
+                    if os.path.exists(reports_dir):
+                        reports_list=os.listdir(reports_dir)
+
+                    if "radiology_report.txt" in reports_list:
+                        print("removing file for patient {}".format(patient_dir))
+                        os.remove(os.path.join(reports_dir,'radiology_report.txt'))
+
+                if delete_existing==False:
+                    if os.path.exists(reports_dir):
+                        reports_list=os.listdir(reports_dir)
+
+                        if "radiology_report.txt" in reports_list:
+                            print('patient {} all G!!!!!!!!!!!!!!!!!!'.format(patient_dir))
+
+                        if not "radiology_report.txt" in reports_list:
+                            print('patient {} needs updating'.format(patient_dir))
+                            needs_update+=[patient_dir]
+        return sorted(needs_update)
+
+
+    def rename_dicoms_folder_in_surgery_cases(self):
+        '''in the surgery_cases database the dicoms folder is named 'dicom', so need to change it '''
+        databases = self.database
+
+        for database in databases:
+            for patient_dir in os.listdir(os.path.join(self.anonymize_database, database)):
+                patient_path=os.path.join(self.anonymize_database, database, patient_dir)
+                files = os.listdir(patient_path)
+                if 'dicom' in files:
+                    os.rename(os.path.join(patient_path,'dicom'),os.path.join(patient_path,'dicoms'))
+
+    def remove_irritating_files(self):
+        '''remove all those ridiculous VERSION files and some other stoopid files that mess up my codee'''
+        databases = self.database
+
+        for database in databases:
+            for patient_dir in os.listdir(os.path.join(self.phi_database, database)):
+                patient_path=os.path.join(self.phi_database, database, patient_dir,'dicoms','t2')
+                files = os.listdir(patient_path)
+
+                # list comprehensions to remove all files with various extension
+                [os.remove(os.path.join(patient_path,file)) for file in files if file.endswith('.xml')]
+                [os.remove(os.path.join(patient_path, file)) for file in files if file.endswith('.bmp')]
+                [os.remove(os.path.join(patient_path, file)) for file in files if file.endswith('.db')]
+
+                if 'VERSION' in files:
+                    os.remove(os.path.join(patient_path,'VERSION'))
+
+
+    def remove_dicoms_path_report(self):
+        databases = self.database
+
+        for database in databases:
+            for patient_dir in os.listdir(os.path.join(self.anonymize_database, database)):
+                print("removing dicom folder and radiology reports for patient {}".format(patient_dir))
+                patient_path=os.path.join(self.anonymize_database, database, patient_dir)
+                files = os.listdir(patient_path)
+                if 'dicoms' in files:
+                    shutil.rmtree(os.path.join(patient_path,'dicoms'))
+                if 'pathologyreports' in files:
+                    shutil.rmtree(os.path.join(patient_path, 'pathologyreports'))
+
+
+    def transfer_files(self):
+        '''transfer anonymized files to new database.  Also remove dates from transferred file so completely anonymized'''
+        
+        databases = self.database
+        
+        for database in databases:
+            for patient_dir in os.listdir(os.path.join(self.anonymize_database, database)):
+                reports_dir = os.path.join(self.anonymize_database, database, patient_dir, 'radiologyreports')
+                if os.path.exists(reports_dir):
+                    reports_list=os.listdir(reports_dir)
+
+                    if "radiology_report.txt" in reports_list:
+                        original_file=os.path.join(reports_dir,'radiology_report.txt')
+                        new_file=os.path.join(self.transfer_database,patient_dir+'.txt')
+                        shutil.copy2(original_file,new_file)
+                        remove_dates(new_file)   #remove dates function from utils
+                    else:
+                        print("patient {} radiology report not transferred".format(patient_dir))
+
+
+if __name__=='__main__':
+    Anonymize().remove_irritating_files()
+
+
+
