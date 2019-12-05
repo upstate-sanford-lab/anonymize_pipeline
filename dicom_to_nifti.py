@@ -12,10 +12,10 @@ import shutil
 class Dicom2Nifti():
 
     def __init__(self):
-        self.basePATH = r''
-        self.databases=['']
+        self.basePATH = r'S:/development'
+        self.databases=['consecutive_PIRADS']
 
-    def dicom_to_nifti(self,t2_only=True):
+    def dicom_to_nifti(self,t2_only=False):
         '''
         convert all dicom files in each database to .nifti format
         :return:
@@ -52,7 +52,7 @@ class Dicom2Nifti():
 
                     dicom_directory=os.path.join(self.basePATH,database,patient,'dicoms',dicom_name)
                     nifti_directory=os.path.join(self.basePATH, database, patient, 'nifti', nifti_name)
-
+                    dicom2nifti.settings.disable_validate_slice_increment()
                     dicom2nifti.convert_directory(dicom_directory, nifti_directory, reorient=False)
 
         print("the following patients still need to be processed {}".format(exception_logger))
@@ -68,13 +68,14 @@ class Dicom2Nifti():
                     need_to_process+=[patient]
 
                 elif os.path.exists(os.path.join(self.basePATH, database, patient, 'nifti')):
-                    for val in ['t2', 'adc', 'highb']:
-                        file=os.path.join(self.basePATH, database, patient, 'nifti')
-                        if not os.path.isdir(os.path.join(file,val)):
-                            need_to_process += [patient]
-                        elif os.path.isdir(os.path.join(file,val)):
-                            if len(os.listdir(os.path.join(file, val))) == 0:
-                                need_to_process += [patient]
+                    # for val in ['t2', 'adc', 'highb']:
+                    #     file=os.path.join(self.basePATH, database, patient, 'nifti')
+                    #     if not os.path.isdir(os.path.join(file,val)):
+                    #         need_to_process += [patient]
+                    #     elif os.path.isdir(os.path.join(file,val)):
+                    #         if len(os.listdir(os.path.join(file, val))) == 0:
+                    #             need_to_process += [patient]
+                    need_to_process += [patient]
 
                 print("patient {} has already had dicoms converted to nifti".format(patient))
 

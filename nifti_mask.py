@@ -16,8 +16,8 @@ import shutil
 class VOI_to_nifti_mask(ParseVOI):
 
     def __init__(self):
-        self.anonymize_database = r''
-        self.databases=['']
+        self.anonymize_database = r'S:/development'
+        self.databases=['consecutive_PIRADS']
 
 
     def create_masks_all_patients(self):
@@ -26,11 +26,12 @@ class VOI_to_nifti_mask(ParseVOI):
         '''
 
         databases=self.databases
-        segmentation_types=['wp','cz','tz']
+        segmentation_types=['wp', 'PIRADS']
         exception_logger=[]
 
         for database in databases:
-            filelist = sorted(self.check_complete_mask(database))
+            #filelist = sorted(self.check_complete_mask(database))
+            filelist = os.listdir(os.path.join(self.anonymize_database, database))
             print('total of {} files left to convert'.format(len(filelist)))
             for patient_dir in filelist:
                 print("converting files to mask for patient {}".format(patient_dir))
@@ -68,8 +69,9 @@ class VOI_to_nifti_mask(ParseVOI):
 
         need_mask=[]
         for patient in os.listdir(os.path.join(self.anonymize_database,database)):
-            if not os.path.exists(os.path.join(self.anonymize_database, database, patient, 'nifti','mask')):
-                need_mask+=[patient]
+            need_mask += [patient]
+            #if not os.path.exists(os.path.join(self.anonymize_database, database, patient, 'nifti','mask')):
+                #need_mask+=[patient]
         return need_mask
 
 
