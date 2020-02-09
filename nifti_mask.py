@@ -185,7 +185,9 @@ class VOI_to_nifti_mask(ParseVOI):
         return all_paths
 
     def poly2mask(self,vertex_row_coords, vertex_col_coords, shape):
-        ''''''
+        '''
+        adapted from https://github.com/jni
+        '''
         fill_row_coords, fill_col_coords = draw.polygon(vertex_row_coords, vertex_col_coords, shape)
         mask = np.zeros(shape, dtype=np.int)
         mask[fill_row_coords, fill_col_coords] = 1
